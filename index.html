@@ -30,8 +30,6 @@
   <hr>
   <h2>📸 Leitura Visual do Gabarito do Aluno</h2>
   <input type="file" accept="image/*" capture="environment" onchange="lerImagemGabarito(event)">
-  <button onclick="iniciarCameraGabarito()">📷 Capturar Gabarito do Professor</button>
-  <div id="readerGabarito"></div>
   <canvas id="canvasGabarito" style="display: none;"></canvas>
   <div id="resultadoImagem"></div>
 
@@ -43,7 +41,6 @@
     let todasCorrecao = [];
     let contador = 0;
     let leitorQRCode;
-    let leitorGabarito;
 
     function corrigirAutomatico(dadosQRCode) {
       const partes = dadosQRCode.split(';');
@@ -117,31 +114,38 @@
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
-        document.getElementById("resultadoImagem").innerHTML = "Imagem carregada. (detecção ainda não implementada)";
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const threshold = 100;
+        const bolinhasMarcadas = [];
+        const linhas = 10;
+        const colunas = 5;
+        const espacoY = canvas.height / linhas;
+        const espacoX = canvas.width / colunas;
+
+        for (let i = 0; i < linhas; i++) {
+          let marcado = "-";
+          for (let j = 0; j < colunas; j++) {
+            const cx = Math.floor(j * espacoX + espacoX / 2);
+            const cy = Math.floor(i * espacoY + espacoY / 2);
+            const idx = (cy * canvas.width + cx) * 4;
+            const [r, g, b] = [imageData.data[idx], imageData.data[idx + 1], imageData.data[idx + 2]];
+            const media = (r + g + b) / 3;
+            if (media < threshold) {
+              marcado = String.fromCharCode(65 + j);
+              break;
+            }
+          }
+          bolinhasMarcadas.push(marcado);
+        }
+
+        document.getElementById("resultadoImagem").innerHTML =
+          `<p>Respostas detectadas: ${bolinhasMarcadas.join(', ')}</p>`;
+        corrigirAutomatico(`nome=AlunoImagem;respostas=${bolinhasMarcadas.join(',')}`);
       };
       const reader = new FileReader();
       reader.onload = e => img.src = e.target.result;
       reader.readAsDataURL(file);
-    }
-
-    function iniciarCameraGabarito() {
-      if (leitorGabarito) leitorGabarito.stop();
-      leitorGabarito = new Html5Qrcode("readerGabarito");
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          const cameraId = devices[0].id;
-          leitorGabarito.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => {
-              document.getElementById("gabarito").value = qrCodeMessage;
-              leitorGabarito.stop();
-              document.getElementById("readerGabarito").innerHTML = "<p>Gabarito carregado via QR Code.</p>";
-            },
-            errorMessage => {}
-          );
-        }
-      });
     }
   </script>
 </body>
